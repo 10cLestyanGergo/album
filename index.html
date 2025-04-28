@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Albumok kezelése</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button { margin: 5px; }
+    .album { margin-bottom: 10px; border: 1px solid #ccc; padding: 10px; }
+    .search-result { color: green; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Albumok kezelése</h1>
+
+  <h2>Új album hozzáadása / Módosítása</h2>
+
+  <input type="hidden" id="albumId">
+
+  <input type="text" id="band" placeholder="Zenekar neve">
+  <input type="text" id="title" placeholder="Album címe">
+  <input type="number" id="year" placeholder="Megjelenés éve">
+  <input type="text" id="genre" placeholder="Műfaj">
+  
+  <button onclick="saveAlbum()">Mentés</button>
+
+  <h2>Albumok</h2>
+  <div id="albums"></div>
+
+  <h2>Album keresése index alapján</h2>
+
+  <input type="number" id="searchIndex" placeholder="Album index keresése (1-től kezdődően)">
+  <button onclick="searchAlbumByIndex()">Keresés</button>
+
+  <div id="searchResult" class="search-result"></div>
+
+  <script>
+    async function loadAlbums() {
+      const res = await fetch('http://localhost:3000/albums');
+      const albums = await res.json();
+      const container = document.getElementById('albums');
+      container.innerHTML = '';
+      albums.forEach((album, index) => {
+        const div = document.createElement('div');
+        div.className = 'album';
+        div.innerHTML = `  
+          <strong>${album.band}</strong> - ${album.title} (${album.year}) [${album.genre}]
+          <br>
+          <button onclick="editAlbum(${index + 1})">Szerkesztés</button>
+          <button onclick="deleteAlbum(${index + 1})">Törlés</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function saveAlbum() {
+      const id = document.getElementById('albumId').value;
+      const band = document.getElementById('band').value;
+      const title = document.getElementById('title').value;
+      const year = document.getElementById('year').value;
+      const genre = document.getElementById('genre').value;
+
+      if (!band || !title || !year || !genre) {
+        alert('Minden mező kitöltése kötelező!');
+        return;
+      }
+
+      const albumData = { band, title, year, genre };
+
+      if (id) {
+
+        await fetch(`http://localhost:3000/albums/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(albumData)
+        });
+      } else {
+        await fetch('http://localhost:3000/albums', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(albumData)
+        });
+      }
+
+      clearForm();
+      loadAlbums();
+    }
+
+    async function editAlbum(index) {
+      const res = await fetch(`http://localhost:3000/albums/${index}`);
+      const album = await res.json();
+      
+      document.getElementById('albumId').value = index;
+      document.getElementById('band').value = album.band;
+      document.getElementById('title').value = album.title;
+      document.getElementById('year').value = album.year;
+      document.getElementById('genre').value = album.genre;
+    }
+
+    async function deleteAlbum(index) {
+      if (confirm('Biztosan törlöd?')) {
+        await fetch(`http://localhost:3000/albums/${index}`, { method: 'DELETE' });
+        loadAlbums();
+      }
+    }
+
+    async function searchAlbumByIndex() {
+      const index = document.getElementById('searchIndex').value;
+
+      if (!index) {
+        alert('Kérlek, add meg az album indexét!');
+        return;
+      }
+
+      const res = await fetch(`http://localhost:3000/albums/${index}`);
+      if (res.ok) {
+        const album = await res.json();
+        document.getElementById('searchResult').innerHTML = `
+          <strong>Talált album:</strong><br>
+          Zenekar: ${album.band}<br>
+          Cím: ${album.title}<br>
+          Év: ${album.year}<br>
+          Műfaj: ${album.genre}
+        `;
+      } else {
+        document.getElementById('searchResult').innerHTML = 'Nem található ilyen album.';
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('albumId').value = '';
+      document.getElementById('band').value = '';
+      document.getElementById('title').value = '';
+      document.getElementById('year').value = '';
+      document.getElementById('genre').value = '';
+    }
+
+    loadAlbums();
+  </script>
+</body>
+</html>
